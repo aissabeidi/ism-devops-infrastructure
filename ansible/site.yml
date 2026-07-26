@@ -1,0 +1,49 @@
+---
+- name: Configuration complète infrastructure ISM-DevOps
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Affichage bannière ISM-DevOps
+      debug:
+        msg: |
+          ============================================
+          ISM DEVOPS ANSIBLE AUTOMATION
+          ============================================
+          Infrastructure: ism-devops
+          Serveur: {{ inventory_hostname }}
+          ============================================
+
+    - name: Mise à jour du cache des packages
+      yum:
+        update_cache: yes
+
+    - name: Installation de Nginx
+      yum:
+        name: nginx
+        state: present
+
+    - name: Démarrage et activation de Nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Déploiement de la page web de test
+      copy:
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head><title>ISM-DevOps</title></head>
+          <body style="font-family: Arial; text-align: center; margin-top: 50px; background: #1e293b; color: white;">
+              <h1>🚀 ISM-DevOps</h1>
+              <p>Infrastructure AWS déployée avec Terraform + Ansible</p>
+              <p>Serveur configuré automatiquement</p>
+          </body>
+          </html>
+        dest: /usr/share/nginx/html/index.html
+
+    - name: Validation finale
+      debug:
+        msg: "✅ Configuration Ansible terminée avec succès sur {{ inventory_hostname }} !"

@@ -1,0 +1,19 @@
+---
+- name: Configurer le serveur web EC2
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - system-update
+    - nginx
+
+  post_tasks:
+    - name: Verifier que Nginx repond en local
+      ansible.builtin.uri:
+        url: "http://localhost"
+        status_code: 200
+      register: result
+      retries: 5
+      delay: 3
+      until: result.status == 200

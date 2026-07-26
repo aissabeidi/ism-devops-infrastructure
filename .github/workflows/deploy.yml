@@ -1,0 +1,104 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-3
+
+jobs:
+  terraform:
+    name: Terraform Plan & Apply
+    runs-on: ubuntu-latest
+    outputs:
+      instance_ip: ${{ steps.tf_output.outputs.instance_ip }}
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Configurer les credentials AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Installer Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Preparer la cle SSH publique
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PUBLIC_KEY }}" > ~/.ssh/id_rsa.pub
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan -out=tfplan -var="ssh_allowed_cidr=${{ secrets.SSH_ALLOWED_CIDR }}" -var="ssh_public_key_path=~/.ssh/id_rsa.pub"
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Recuperer l'IP de l'instance
+        id: tf_output
+        working-directory: terraform
+        run: echo "instance_ip=$(terraform output -raw instance_public_ip)" >> "$GITHUB_OUTPUT"
+
+  ansible:
+    name: Configuration Ansible
+    needs: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Configurer les credentials AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Installer Ansible et dependances
+        run: |
+          pip install ansible boto3 botocore
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Preparer la cle SSH privee
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Attendre que l'instance soit prete (SSH)
+        run: |
+          timeout 180 bash -c 'until nc -z ${{ needs.terraform.outputs.instance_ip }} 22; do sleep 5; done'
+
+      - name: Executer le playbook Ansible
+        working-directory: ansible
+        run: |
+          ansible-playbook -i inventory/aws_ec2.yml playbook.yml \
+            --private-key ~/.ssh/id_rsa \
+            -u ubuntu \
+            --ssh-common-args='-o StrictHostKeyChecking=no'
+
+  tests:
+    name: Tests post-deploiement
+    needs: [terraform, ansible]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifier que le serveur repond en HTTP
+        run: |
+          IP="${{ needs.terraform.outputs.instance_ip }}"
+          status=$(curl -s -o /dev/null -w "%{http_code}" "http://$IP")
+          if [ "$status" -ne 200 ]; then
+            echo "Echec : le serveur a repondu avec le code $status"
+            exit 1
+          fi
+          echo "Succes : le serveur repond correctement (HTTP $status)"

@@ -1,0 +1,32 @@
+---
+- name: Mettre a jour le cache apt
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Mettre a niveau tous les paquets
+  ansible.builtin.apt:
+    upgrade: dist
+
+- name: Installer les paquets utilitaires de base
+  ansible.builtin.apt:
+    name:
+      - unattended-upgrades
+      - fail2ban
+      - ufw
+    state: present
+
+- name: Activer le pare-feu UFW (SSH, HTTP, HTTPS uniquement)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "22"
+    - "80"
+    - "443"
+
+- name: Activer UFW
+  community.general.ufw:
+    state: enabled
+    policy: deny

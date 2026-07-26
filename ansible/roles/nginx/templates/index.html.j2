@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Serveur deploye automatiquement</title>
+</head>
+<body>
+    <h1>Deploiement reussi</h1>
+    <p>Cette page a ete deployee automatiquement via Terraform + Ansible + GitHub Actions.</p>
+    <p>Hote : {{ ansible_hostname }}</p>
+    <p>Date de deploiement : {{ ansible_date_time.iso8601 }}</p>
+</body>
+</html>

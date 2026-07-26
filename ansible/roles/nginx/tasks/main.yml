@@ -1,0 +1,24 @@
+---
+- name: Installer Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+
+- name: Deployer la page web
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: /var/www/html/index.html
+    owner: www-data
+    group: www-data
+    mode: "0644"
+  notify: Redemarrer nginx
+
+- name: S'assurer que Nginx est demarre et active au boot
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Ouvrir HTTP/HTTPS dans le security group applicatif (deja gere par Terraform)
+  ansible.builtin.debug:
+    msg: "Ports 80/443 geres au niveau du security group AWS via Terraform."

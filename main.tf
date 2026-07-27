@@ -77,9 +77,8 @@ resource "aws_security_group" "web" {
 # --- Clé SSH ---
 resource "aws_key_pair" "deployer" {
   key_name   = "${var.project_name}-key"
-  public_key = file(var.public_key_path)
+  public_key = var.public_key_content
 }
-
 # --- EC2 ---
 data "aws_ami" "amazon_linux" {
   most_recent = true

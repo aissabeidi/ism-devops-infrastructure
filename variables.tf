@@ -13,3 +13,8 @@ variable "instance_type" {
 variable "public_key_path" {
   default = "C:/Users/X1 Carbon/.ssh/id_rsa.pub"
 }
+variable "public_key_content" {
+  description = "Contenu de la clé publique SSH"
+  type        = string
+  default     = ""
+}
